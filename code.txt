@@ -1,0 +1,37 @@
+import gradio as gr
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+
+# 1. Load dataset (SMS Spam Collection from Kaggle/UCI)
+df = pd.read_csv("spam.csv", encoding="latin-1")[["v1", "v2"]]
+df = df.rename(columns={"v1": "label", "v2": "text"})
+df["label"] = df["label"].map({"spam": 1, "ham": 0})  # 1 = Fraud, 0 = Not Fraud
+
+# 2. Train ML model
+X_train, X_test, y_train, y_test = train_test_split(
+    df["text"], df["label"], test_size=0.2, random_state=42
+)
+vectorizer = TfidfVectorizer(stop_words="english", max_features=5000)
+X_train_tfidf = vectorizer.fit_transform(X_train)
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train_tfidf, y_train)
+
+# 3. Prediction function
+def detect_fraud(email_text):
+    email_tfidf = vectorizer.transform([email_text])
+    pred = model.predict(email_tfidf)[0]
+    return "Fraud" if pred == 1 else "Not Fraud"
+
+# 4. Gradio interface
+iface = gr.Interface(
+    fn=detect_fraud,
+    inputs=gr.Textbox(lines=10, placeholder="Paste email text here..."),
+    outputs="text",
+    title="Email Fraud Detection",
+    description="Enter an email message and classify it as Fraud or Not Fraud."
+)
+
+if __name__ == "__main__":
+    iface.launch()
